@@ -19,6 +19,7 @@
  */
 #pragma once
 
+#include "AP_NavEKF3_feature.h"
 #include <AP_Common/Location.h>
 #include <AP_Math/AP_Math.h>
 #include <AP_Param/AP_Param.h>
@@ -156,6 +157,14 @@ public:
     // The altitude element of the location is not used.
     // Returns true if the set was successful
     bool setLatLng(const Location &loc, float posErr, uint32_t timestamp_ms);
+
+#if EK3_FEATURE_FORCED_POSITION_RESET
+    // Force position reset for GPS-free flight on all cores
+    bool forcePositionReset(const Location &loc, float posAccuracy);
+
+    // Force wind state reset for GPS-free flight on all cores
+    bool forceWindReset(float windN, float windE, float windAccuracy);
+#endif
 
     // return estimated height above ground level
     // return false if ground height is not being estimated.
@@ -475,6 +484,7 @@ private:
         JammingExpected         = (1<<0),
         ManualLaneSwitch        = (1<<1),
         OptflowMayUseTerrainAlt = (1<<2),
+        AllowNoGPSPlaneInit     = (1<<3),
     };
     bool option_is_enabled(Option option) const {
         return (_options & (uint32_t)option) != 0;

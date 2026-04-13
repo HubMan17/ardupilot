@@ -275,6 +275,7 @@ void NavEKF3_core::InitialiseVariables()
     treatWindStatesAsTruth = false;
     lastAspdEstIsValid = false;
     windStatesAligned = false;
+    _has_forced_position = false;
     inhibitDelVelBiasStates = true;
     inhibitDelAngBiasStates = true;
     gndOffsetValid =  false;
@@ -472,7 +473,9 @@ bool NavEKF3_core::InitialiseFilterBootstrap(void)
     update_sensor_selection();
 
     // If we are a plane and don't have GPS lock then don't initialise
-    if (assume_zero_sideslip() && dal.gps().status(preferred_gps) < AP_GPS_FixType::FIX_3D) {
+    // unless AllowNoGPSPlaneInit option is set for GPS-free flight
+    if (assume_zero_sideslip() && dal.gps().status(preferred_gps) < AP_GPS_FixType::FIX_3D &&
+        !frontend->option_is_enabled(NavEKF3::Option::AllowNoGPSPlaneInit)) {
         dal.snprintf(prearm_fail_string,
                      sizeof(prearm_fail_string),
                      "EKF3 init failure: No GPS lock");

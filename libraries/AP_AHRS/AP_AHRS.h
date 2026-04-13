@@ -269,6 +269,11 @@ public:
     bool handle_external_position_estimate(const Location &loc, float pos_accuracy, uint32_t timestamp_);
 #endif
 
+#if AP_AHRS_POSITION_RESET_ENABLED
+    bool handle_force_position_reset(const Location &loc, float pos_accuracy);
+    bool handle_force_wind_reset(float windN, float windE, float wind_accuracy);
+#endif
+
     // returns the inertial navigation origin in lat/lon/alt
     bool get_origin(Location &ret) const WARN_IF_UNUSED;
 

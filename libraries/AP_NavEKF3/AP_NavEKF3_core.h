@@ -235,6 +235,16 @@ public:
     // Returns true if the set was successful
     bool setLatLng(const Location &loc, float posAccuracy, uint32_t timestamp_ms);
 
+#if EK3_FEATURE_FORCED_POSITION_RESET
+    // Force a position reset for GPS-free flight
+    // Sets origin if needed, resets position states, switches to AID_ABSOLUTE
+    bool forcePositionReset(const Location &loc, float posAccuracy);
+
+    // Force wind states to specified values for GPS-free flight
+    // Freezes wind learning to prevent co-drift with velocity
+    bool forceWindReset(float windN, float windE, float windAccuracy);
+#endif
+
     // Popoluates the WMM data structure with the field at the given location
     void setEarthFieldFromLocation(const Location &loc);
 
@@ -1168,6 +1178,7 @@ private:
     bool windStateIsObservable;     // true when wind states are observable from measurements.
     bool treatWindStatesAsTruth;    // true when wind states should be used as a truth reference
     bool windStatesAligned;         // true when wind states have been aligned
+    bool _has_forced_position;      // true when position has been set via forcePositionReset for GPS-free flight
     bool inhibitMagStates;          // true when magnetic field states are inactive
     bool lastInhibitMagStates;      // previous inhibitMagStates
     bool needMagBodyVarReset;       // we need to reset mag body variances at next CovariancePrediction

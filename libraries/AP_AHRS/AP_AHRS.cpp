@@ -1580,6 +1580,24 @@ bool AP_AHRS::handle_external_position_estimate(const Location &loc, float pos_a
 }
 #endif
 
+#if AP_AHRS_POSITION_RESET_ENABLED
+bool AP_AHRS::handle_force_position_reset(const Location &loc, float pos_accuracy)
+{
+#if HAL_NAVEKF3_AVAILABLE
+    return EKF3.forcePositionReset(loc, pos_accuracy);
+#endif
+    return false;
+}
+
+bool AP_AHRS::handle_force_wind_reset(float windN, float windE, float wind_accuracy)
+{
+#if HAL_NAVEKF3_AVAILABLE
+    return EKF3.forceWindReset(windN, windE, wind_accuracy);
+#endif
+    return false;
+}
+#endif // AP_AHRS_POSITION_RESET_ENABLED
+
 // return true if inertial navigation is active
 bool AP_AHRS::have_inertial_nav(void) const
 {

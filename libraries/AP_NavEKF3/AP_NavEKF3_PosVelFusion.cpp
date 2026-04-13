@@ -224,6 +224,61 @@ bool NavEKF3_core::setLatLng(const Location &loc, float posAccuracy, uint32_t ti
 }
 #endif // EK3_FEATURE_POSITION_RESET
 
+#if EK3_FEATURE_FORCED_POSITION_RESET
+bool NavEKF3_core::forcePositionReset(const Location &loc, float posAccuracy)
+{
+    if (!validOrigin) {
+        if (!setOrigin(loc)) {
+            return false;
+        }
+    }
+
+    Vector2F posNE = EKF_origin.get_distance_NE_ftype(loc);
+    ResetPositionNE(posNE.x, posNE.y);
+
+    // update so AID_NONE constant-position fusion holds at the new location
+    lastKnownPositionNE.x = posNE.x;
+    lastKnownPositionNE.y = posNE.y;
+
+    P[7][7] = sq(ftype(posAccuracy));
+    P[8][8] = sq(ftype(posAccuracy));
+
+    // on repeat calls velocity is already correct and must not be disturbed
+    const bool firstForce = !_has_forced_position;
+
+    _has_forced_position = true;
+    PV_AidingMode = AID_ABSOLUTE;
+
+    // prevent health checks from immediately transitioning back to AID_NONE
+    posTimeout = false;
+    velTimeout = false;
+    tasTimeout = false;
+    lastGpsPosPassTime_ms = imuSampleTime_ms;
+    lastVelPassTime_ms = imuSampleTime_ms;
+
+    // only widen velocity covariance on first call — velocity is zero and
+    // needs TAS fusion to build up; on subsequent calls the filter has
+    // converged and resetting would destabilize it
+    if (firstForce) {
+        zeroRows(P,4,5);
+        zeroCols(P,4,5);
+        P[4][4] = sq(ftype(25.0f));
+        P[5][5] = sq(ftype(25.0f));
+    }
+
+    return true;
+}
+
+bool NavEKF3_core::forceWindReset(float windN, float windE, float windAccuracy)
+{
+    stateStruct.wind_vel.x = windN;
+    stateStruct.wind_vel.y = windE;
+    P[22][22] = sq(ftype(windAccuracy));
+    P[23][23] = sq(ftype(windAccuracy));
+    windStatesAligned = true;
+    return true;
+}
+#endif // EK3_FEATURE_FORCED_POSITION_RESET
 
 // reset the stateStruct's NE position to the specified position
 //    posResetNE is updated to hold the change in position
@@ -646,7 +701,7 @@ void NavEKF3_core::SelectVelPosFusion()
     // vehicle. Do this to coincide with the height fusion.
     fusingStationaryZeroVel = false;
 
-    if (fuseHgtData && PV_AidingMode == AID_NONE) {
+    if (fuseHgtData && PV_AidingMode == AID_NONE && !_has_forced_position) {
         if (assume_zero_sideslip() && tiltAlignComplete && motorsArmed) {
             // handle special case where we are launching a FW aircraft without magnetometer
             fusePosData = false;

@@ -216,11 +216,11 @@ void NavEKF3_core::getVelNED(Vector3f &vel) const
 // returns false if estimate is unavailable
 bool NavEKF3_core::getAirSpdVec(Vector3f &vel) const
 {
-    if (PV_AidingMode == AID_NONE) {
+    if (PV_AidingMode == AID_NONE && !_has_forced_position) {
         return false;
     }
     vel = (outputDataNew.velocity + velOffsetNED).tofloat();
-    if (!inhibitWindStates) {
+    if (!inhibitWindStates || _has_forced_position) {
         vel.x -= stateStruct.wind_vel.x;
         vel.y -= stateStruct.wind_vel.y;
     }
@@ -257,7 +257,7 @@ float NavEKF3_core::getPosDownDerivative(void) const
 bool NavEKF3_core::getPosNE(Vector2p &posNE) const
 {
     // There are three modes of operation, absolute position (GPS fusion), relative position (optical flow fusion) and constant position (no position estimate available)
-    if (PV_AidingMode != AID_NONE) {
+    if (PV_AidingMode != AID_NONE || _has_forced_position) {
         // This is the normal mode of operation where we can use the EKF position states
         // correct for the IMU offset (EKF calculations are at the IMU)
         posNE = outputDataNew.position.xy().topostype() + posOffsetNED.xy().topostype() + public_origin.get_distance_NE_postype(EKF_origin);
@@ -336,7 +336,7 @@ bool NavEKF3_core::getLLH(Location &loc) const
     Location origin;
     if (getOriginLLH(origin)) {
         postype_t posD;
-        if (getPosD_local(posD) && PV_AidingMode != AID_NONE) {
+        if (getPosD_local(posD) && (PV_AidingMode != AID_NONE || _has_forced_position)) {
             // Altitude returned is an absolute altitude relative to the WGS-84 spherioid
             loc.set_alt_cm(origin.alt - posD*100.0, Location::AltFrame::ABSOLUTE);
             if (filterStatus.flags.horiz_pos_abs || filterStatus.flags.horiz_pos_rel) {

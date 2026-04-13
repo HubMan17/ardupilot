@@ -61,7 +61,8 @@ void NavEKF3_core::setWindMagStateLearningMode()
 {
     const bool canEstimateWind = ((finalInflightYawInit && dragFusionEnabled) || assume_zero_sideslip()) &&
                                  !onGround &&
-                                 PV_AidingMode != AID_NONE;
+                                 PV_AidingMode != AID_NONE &&
+                                 !_has_forced_position;
     if (!inhibitWindStates && !canEstimateWind) {
         inhibitWindStates = true;
         lastAspdEstIsValid = false;
@@ -338,6 +339,19 @@ void NavEKF3_core::setAidingMode()
             const bool rngBcnUsed = false;
 #endif
 
+            // in forced position mode, refresh pass time to prevent timeout;
+            // if GPS becomes available, snap back to GPS aiding
+            if (_has_forced_position) {
+                if (readyToUseGPS()) {
+                    _has_forced_position = false;
+                    ResetPosition(resetDataSource::GPS);
+                    ResetVelocity(resetDataSource::GPS);
+                    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "EKF3 IMU%u GPS restored, position reset to GPS", (unsigned)imu_index);
+                } else {
+                    lastGpsPosPassTime_ms = imuSampleTime_ms;
+                }
+            }
+
             // Check if GPS or external nav is being used
             bool posUsed = (imuSampleTime_ms - lastGpsPosPassTime_ms <= minTestTime_ms);
             bool gpsVelUsed = (imuSampleTime_ms - lastVelPassTime_ms <= minTestTime_ms);
@@ -388,7 +402,7 @@ void NavEKF3_core::setAidingMode()
                     (imuSampleTime_ms - lastGpsPosPassTime_ms > maxLossTime_ms);
             }
 
-            if (attAidLossCritical) {
+            if (attAidLossCritical && !_has_forced_position) {
                 // if the loss of attitude data is critical, then put the filter into a constant position mode
                 PV_AidingMode = AID_NONE;
                 posTimeout = true;
@@ -396,7 +410,7 @@ void NavEKF3_core::setAidingMode()
                 tasTimeout = true;
                 dragTimeout = true;
                 gpsIsInUse = false;
-             } else if (posAidLossCritical) {
+             } else if (posAidLossCritical && !_has_forced_position) {
                 // if the loss of position is critical, declare all sources of position aiding as being timed out
                 posTimeout = true;
                 velTimeout = !optFlowUsed && !gpsVelUsed && !bodyOdmUsed;
@@ -802,10 +816,10 @@ void  NavEKF3_core::updateFilterStatus(void)
 #endif
     status.flags.horiz_pos_rel = ((doingFlowNav && optflow_gnd_offset) || doingWindRelNav || doingNormalGpsNav || doingBodyVelNav) && filterHealthy;   // relative horizontal position estimate valid
 
-    status.flags.horiz_pos_abs = doingNormalGpsNav && filterHealthy; // absolute horizontal position estimate valid
+    status.flags.horiz_pos_abs = (doingNormalGpsNav || _has_forced_position) && filterHealthy; // absolute horizontal position estimate valid
     status.flags.vert_pos = !hgtTimeout && filterHealthy && !hgtNotAccurate; // vertical position estimate valid
     status.flags.terrain_alt = gndOffsetValid && filterHealthy;		// terrain height estimate valid
-    status.flags.const_pos_mode = (PV_AidingMode == AID_NONE) && filterHealthy;     // constant position mode
+    status.flags.const_pos_mode = (PV_AidingMode == AID_NONE) && !_has_forced_position && filterHealthy;     // constant position mode
     status.flags.pred_horiz_pos_rel = status.flags.horiz_pos_rel; // EKF3 enters the required mode before flight
     status.flags.pred_horiz_pos_abs = status.flags.horiz_pos_abs; // EKF3 enters the required mode before flight
     status.flags.takeoff_detected = takeOffDetected; // takeoff for optical flow navigation has been detected

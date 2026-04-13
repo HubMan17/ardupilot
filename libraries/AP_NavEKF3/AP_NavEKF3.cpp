@@ -1473,6 +1473,31 @@ bool NavEKF3::setLatLng(const Location &loc, float posAccuracy, uint32_t timesta
 #endif // EK3_FEATURE_POSITION_RESET
 }
 
+#if EK3_FEATURE_FORCED_POSITION_RESET
+bool NavEKF3::forcePositionReset(const Location &loc, float posAccuracy)
+{
+    if (!core) {
+        return false;
+    }
+    bool ret = false;
+    for (uint8_t i=0; i<num_cores; i++) {
+        ret |= core[i].forcePositionReset(loc, posAccuracy);
+    }
+    return ret;
+}
+
+bool NavEKF3::forceWindReset(float windN, float windE, float windAccuracy)
+{
+    if (!core) {
+        return false;
+    }
+    bool ret = false;
+    for (uint8_t i=0; i<num_cores; i++) {
+        ret |= core[i].forceWindReset(windN, windE, windAccuracy);
+    }
+    return ret;
+}
+#endif // EK3_FEATURE_FORCED_POSITION_RESET
 
 // return estimated height above ground level
 // return false if ground height is not being estimated.

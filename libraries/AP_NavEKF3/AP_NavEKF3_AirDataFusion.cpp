@@ -114,7 +114,8 @@ void NavEKF3_core::FuseAirspeed()
         }
 
         // test the ratio before fusing data, forcing fusion if airspeed and position are timed out as we have no choice but to try and use airspeed to constrain error growth
-        if (tasDataDelayed.allowFusion && (isConsistent || (tasTimeout && posTimeout))) {
+        // in forced position mode, always fuse TAS as it is the only velocity magnitude constraint
+        if (tasDataDelayed.allowFusion && (isConsistent || (tasTimeout && posTimeout) || _has_forced_position)) {
 
             // restart the counter
             lastTasPassTime_ms = imuSampleTime_ms;
@@ -170,8 +171,8 @@ void NavEKF3_core::SelectTasFusion()
     readAirSpdData();
 
     // if the filter is initialised, wind states are not inhibited and we have data to fuse, then perform TAS fusion
-
-    if (tasDataToFuse && statesInitialised && !inhibitWindStates) {
+    // in forced position mode, fuse TAS even if wind states are inhibited as it constrains velocity magnitude
+    if (tasDataToFuse && statesInitialised && (!inhibitWindStates || _has_forced_position)) {
         FuseAirspeed();
         tasDataToFuse = false;
         prevTasStep_ms = imuSampleTime_ms;
@@ -202,10 +203,11 @@ void NavEKF3_core::SelectBetaDragFusion()
     bool is_dead_reckoning = ((imuSampleTime_ms - lastGpsPosPassTime_ms) > frontend->deadReckonDeclare_ms) &&
                              ((imuSampleTime_ms - lastVelPassTime_ms) > frontend->deadReckonDeclare_ms);
     const bool noYawSensor = !use_compass() && !using_noncompass_for_yaw();
-    const bool f_required = (noYawSensor && (frontend->_betaMask & (1<<1))) || is_dead_reckoning;
+    const bool f_required = (noYawSensor && (frontend->_betaMask & (1<<1))) || is_dead_reckoning || _has_forced_position;
 
     // set true when sideslip fusion is feasible (requires zero sideslip assumption to be valid and use of wind states)
-    const bool f_beta_feasible = (assume_zero_sideslip() && !inhibitWindStates);
+    // in forced position mode, sideslip is feasible even if wind states are inhibited
+    const bool f_beta_feasible = (assume_zero_sideslip() && (!inhibitWindStates || _has_forced_position));
 
     // use synthetic sideslip fusion if feasible, required and enough time has lapsed since the last fusion
     if (f_beta_feasible && f_timeTrigger) {

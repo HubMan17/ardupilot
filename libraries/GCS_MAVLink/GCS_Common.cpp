@@ -5576,6 +5576,49 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_external_wind_estimate(const mavlink_
 }
 #endif // AP_AHRS_EXTERNAL_WIND_ESTIMATE_ENABLED
 
+#if AP_AHRS_POSITION_RESET_ENABLED
+MAV_RESULT GCS_MAVLINK::handle_command_force_position_reset(const mavlink_command_int_t &packet)
+{
+    if (packet.x == 0 && packet.y == 0) {
+        return MAV_RESULT_DENIED;
+    }
+
+    Location loc;
+    loc.lat = packet.x;
+    loc.lng = packet.y;
+
+    const float pos_accuracy = packet.param1;
+    if (pos_accuracy <= 0 || isnan(pos_accuracy)) {
+        return MAV_RESULT_DENIED;
+    }
+
+    if (!AP::ahrs().handle_force_position_reset(loc, pos_accuracy)) {
+        return MAV_RESULT_FAILED;
+    }
+    return MAV_RESULT_ACCEPTED;
+}
+
+MAV_RESULT GCS_MAVLINK::handle_command_force_wind_reset(const mavlink_command_int_t &packet)
+{
+    const float windN = packet.param1;
+    const float windE = packet.param2;
+    const float wind_accuracy = packet.param3;
+
+    if (!isfinite(windN) || !isfinite(windE)) {
+        return MAV_RESULT_DENIED;
+    }
+
+    if (wind_accuracy <= 0 || isnan(wind_accuracy)) {
+        return MAV_RESULT_DENIED;
+    }
+
+    if (!AP::ahrs().handle_force_wind_reset(windN, windE, wind_accuracy)) {
+        return MAV_RESULT_FAILED;
+    }
+    return MAV_RESULT_ACCEPTED;
+}
+#endif // AP_AHRS_POSITION_RESET_ENABLED
+
 MAV_RESULT GCS_MAVLINK::handle_command_do_set_roi(const mavlink_command_int_t &packet)
 {
     // be aware that this method is called for both MAV_CMD_DO_SET_ROI
@@ -5782,6 +5825,13 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &p
 #if AP_AHRS_EXTERNAL_WIND_ESTIMATE_ENABLED
     case MAV_CMD_EXTERNAL_WIND_ESTIMATE:
         return handle_command_int_external_wind_estimate(packet);
+#endif
+#if AP_AHRS_POSITION_RESET_ENABLED
+    // development command IDs for GPS-free position/wind reset
+    case 43210:
+        return handle_command_force_position_reset(packet);
+    case 43211:
+        return handle_command_force_wind_reset(packet);
 #endif
 #if AP_ARMING_ENABLED
     case MAV_CMD_COMPONENT_ARM_DISARM:
