@@ -19,7 +19,7 @@
  */
 #pragma once
 
-#include "AP_NavEKF3_feature.h"
+#include <AP_AHRS/AP_AHRS_config.h>
 #include <AP_Common/Location.h>
 #include <AP_Math/AP_Math.h>
 #include <AP_Param/AP_Param.h>
@@ -158,7 +158,7 @@ public:
     // Returns true if the set was successful
     bool setLatLng(const Location &loc, float posErr, uint32_t timestamp_ms);
 
-#if EK3_FEATURE_FORCED_POSITION_RESET
+#if AP_AHRS_POSITION_RESET_ENABLED
     // Force position reset for GPS-free flight on all cores
     bool forcePositionReset(const Location &loc, float posAccuracy);
 
