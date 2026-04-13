@@ -5577,6 +5577,14 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_external_wind_estimate(const mavlink_
 #endif // AP_AHRS_EXTERNAL_WIND_ESTIMATE_ENABLED
 
 #if AP_AHRS_POSITION_RESET_ENABLED
+/*
+  handle forced position reset for GPS-free flight (dev command 43210)
+  Forces EKF3 position to given lat/lon and switches to AID_ABSOLUTE mode.
+  When GPS becomes available the EKF automatically reverts to GPS aiding.
+  param1 : position accuracy (m), must be > 0
+  x      : latitude (degE7)
+  y      : longitude (degE7)
+*/
 MAV_RESULT GCS_MAVLINK::handle_command_force_position_reset(const mavlink_command_int_t &packet)
 {
     if (packet.x == 0 && packet.y == 0) {
@@ -5598,6 +5606,14 @@ MAV_RESULT GCS_MAVLINK::handle_command_force_position_reset(const mavlink_comman
     return MAV_RESULT_ACCEPTED;
 }
 
+/*
+  handle forced wind reset for GPS-free flight (dev command 43211)
+  Sets EKF3 wind states directly and freezes wind learning so that
+  TAS and sideslip fusion can constrain the velocity estimate.
+  param1 : wind speed north (m/s)
+  param2 : wind speed east (m/s)
+  param3 : wind accuracy (m/s), must be > 0
+*/
 MAV_RESULT GCS_MAVLINK::handle_command_force_wind_reset(const mavlink_command_int_t &packet)
 {
     const float windN = packet.param1;
